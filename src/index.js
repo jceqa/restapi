@@ -1,55 +1,29 @@
+const config = require('./common/config/env.config.js');
+
 const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
 const app = express();
-const {startDatabase} = require('./database/mongo');
-const {insertAd, getAds} = require('./database/ads');
-const {deleteAd, updateAd} = require('./database/ads');
-const UsersController = require("./users/controllers/users.controllers");
 
-app.use(helmet());
-app.use(bodyParser.json());
-app.use(cors());
-app.use(morgan('combined'));
+const AuthorizationRouter = require('./authorization/routes.config');
+const UsersRouter = require('./users/routes.config');
 
-app.get('/', async (req, res) => {
-  res.send(await getAds());
+app.use(function (req, res, next) {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
+  res.header('Access-Control-Expose-Headers', 'Content-Length');
+  res.header('Access-Control-Allow-Headers', 'Accept, Authorization, Content-Type, X-Requested-With, Range');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  } else {
+    return next();
+  }
 });
 
-app.post('/', async (req, res) => {
-  const newAd = req.body;
-  await insertAd(newAd);
-  res.send({ message: 'New ad inserted.' });
-});
+app.use(express.json());
+AuthorizationRouter.routesConfig(app);
+UsersRouter.routesConfig(app);
 
-// endpoint to delete an ad
-app.delete('/:id', async (req, res) => {
-  await deleteAd(req.params.id);
-  res.send({ message: 'Ad removed.' });
-});
 
-// endpoint to update an ad
-app.put('/:id', async (req, res) => {
-  const updatedAd = req.body;
-  await updateAd(req.params.id, updatedAd);
-  res.send({ message: 'Ad updated.' });
-});
-
-app.post('/users', [
-  UsersController.insert
-]);
-
-app.get('/users/:userId', [
-  UsersController.getById
-]);
-
-startDatabase().then(async () => {
-  await insertAd({title: 'Hello, now from the in-memory database!'});
-
-  // start the server
-  app.listen(3001, async () => {
-    console.log('listening on port 3001');
-  });
+app.listen(config.port, function () {
+  console.log('app listening at port %s', config.port);
 });
