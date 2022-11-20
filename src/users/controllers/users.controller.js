@@ -1,53 +1,103 @@
-const crypto = require('crypto');
-const UserModel = require('../models/users.model');
+import expressAsyncHandler from 'express-async-handler';
+import User from '../models/users.model.js';
+import crypto from 'crypto';
 
-exports.insert = (req, res) => {
-  let salt = crypto.randomBytes(16).toString('base64');
-  let hash = crypto.createHmac('sha512',salt)
-    .update(req.body.password)
-    .digest("base64");
+const insert = expressAsyncHandler(async (req, res) => {
+  const salt = crypto.randomBytes(16).toString('base64');
+  const hash = crypto.createHmac('sha512', salt).update(req.body.password).digest("base64");
   req.body.password = salt + "$" + hash;
-  req.body.permissionLevel = 1;
-  UserModel.createUser(req.body)
-    .then((result) => {
-      res.status(201).send({id: result._id});
-    });
-};
+  req.body.permissionLevel = req.body.permissionLevel || 1;
 
-exports.getById = (req, res) => {
-  UserModel.findById(req.params.userId).then((result) => {
-    res.status(200).send(result);
-  });
-};
+  const {firstName, lastName, email, password, permissionLevel} = req.body;
 
-exports.patchById = (req, res) => {
-  if (req.body.password){
+  const userExists = await User.findOne({email});
+
+  if (userExists) {
+    res.status(400);
+    throw new Error('User already exists');
+  }
+
+  const user = await User.create({
+    firstName,
+    lastName,
+    email,
+    password,
+    permissionLevel,
+  })
+
+  if (user) {
+    res.status(201).json({message:'User created successfully'});
+  } else {
+    res.status(400);
+    throw new Error('Invalid user Data');
+  }
+
+
+});
+
+const list = expressAsyncHandler(async (req, res) => {
+  const pagesize = 10;
+  const page = Number(req.query.pageNumber) || 1;
+
+  const count = await User.count();
+  const users = await User.find()
+    .limit(pagesize)
+    .skip(pagesize * (page - 1));
+
+  res.json({users, page, pages: Math.ceil(count / pagesize)});
+});
+
+const getById = expressAsyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id).select('-password');
+  if (user) {
+    res.json(user);
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
+});
+
+const updateById = expressAsyncHandler(async (req, res) => {
+  if (req.body.password) {
     let salt = crypto.randomBytes(16).toString('base64');
     let hash = crypto.createHmac('sha512', salt).update(req.body.password).digest("base64");
     req.body.password = salt + "$" + hash;
   }
-  UserModel.patchUser(req.params.userId, req.body).then((result) => {
-    res.status(204).send({});
-  });
-};
 
-exports.list = (req, res) => {
-  let limit = req.query.limit && req.query.limit <= 100 ? parseInt(req.query.limit) : 10;
-  let page = 0;
-  if (req.query) {
-    if (req.query.page) {
-      req.query.page = parseInt(req.query.page);
-      page = Number.isInteger(req.query.page) ? req.query.page : 0;
-    }
-  }
-  UserModel.list(limit, page).then((result) => {
-    res.status(200).send(result);
-  })
-}
+  const user = await User.findById(req.params.id);
 
-exports.removeById = (req, res) => {
-  UserModel.removeById(req.params.userId)
-    .then((result)=>{
-      res.status(204).send({});
+  if (user) {
+    user.firstName = req.body.firstName || user.firstName;
+    user.lastname = req.body.lastname || user.lastname;
+    user.email = req.body.email || user.email;
+    user.permissionLevel = req.body.permissionLevel || user.permissionLevel;
+
+    const updatedUser = await user.save();
+
+    res.json({message: 'User updated succesfully',
     });
-};
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
+});
+
+const removeById = expressAsyncHandler(async (req, res) => {
+  const user = await User.findById(req.params.id);
+
+  if (user) {
+    await user.remove();
+    res.json({message: 'User removed'});
+  } else {
+    res.status(404);
+    throw new Error('User not found');
+  }
+});
+
+export {
+  updateById,
+  removeById,
+  list,
+  getById,
+  insert
+}

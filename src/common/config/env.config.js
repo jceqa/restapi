@@ -1,4 +1,4 @@
-module.exports = {
+const config= {
     "port": 3600,
     "appEndpoint": "http://localhost:3600",
     "apiEndpoint": "http://localhost:3600",
@@ -11,3 +11,5 @@ module.exports = {
         "ADMIN": 2048
     }
 };
+
+export default config;

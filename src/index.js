@@ -1,10 +1,13 @@
-const config = require('./common/config/env.config.js');
+import config from './common/config/env.config.js';
+import express from 'express';
+import { notFound, errorHandler } from './common/middlewares/errorMiddleware.js';
+import AuthorizationRouter from './authorization/routes.config.js';
+import UsersRouter from './users/routes.config.js';
+import swaggerUI from 'swagger-ui-express';
+import basicInfo from './docs/basicInfo.js';
 
-const express = require('express');
 const app = express();
 
-const AuthorizationRouter = require('./authorization/routes.config');
-const UsersRouter = require('./users/routes.config');
 
 app.use(function (req, res, next) {
   res.header('Access-Control-Allow-Origin', '*');
@@ -19,10 +22,16 @@ app.use(function (req, res, next) {
   }
 });
 
-app.use(express.json());
-AuthorizationRouter.routesConfig(app);
-UsersRouter.routesConfig(app);
 
+
+app.use(express.json());
+app.use('/apiDocs',swaggerUI.serve,swaggerUI.setup(basicInfo));
+
+AuthorizationRouter(app);
+UsersRouter(app);
+
+app.use(notFound);
+app.use(errorHandler);
 
 app.listen(config.port, function () {
   console.log('app listening at port %s', config.port);

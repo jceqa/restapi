@@ -1,5 +1,7 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 let count = 0;
+
+const mongooseDB = mongoose;
 
 const options = {
   autoIndex: false, // Don't build indexes
@@ -23,4 +25,4 @@ const connectWithRetry = () => {
 
 connectWithRetry();
 
-exports.mongoose = mongoose;
+export {mongooseDB};
